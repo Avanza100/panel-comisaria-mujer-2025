@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel - Comisaría de la Mujer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="login-box" style="max-width:700px">
+    <h2>Panel Principal</h2>
+    <p>✔ Acceso correcto. El sistema ya funciona.</p>
+
+    <button onclick="salir()">Cerrar sesión</button>
+  </div>
+
+  <script>
+    if (localStorage.getItem("auth") !== "true") {
+      window.location.href = "index.html";
+    }
+
+    function salir() {
+      localStorage.removeItem("auth");
+      window.location.href = "index.html";
+    }
+  </script>
+
+</body>
+</html>
