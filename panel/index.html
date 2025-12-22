@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Panel -Sistema Web de Control De Registros con Vencimientos</title>
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    .wrap{max-width:1100px;margin:30px auto;padding:0 14px}
+    .card{background:#fff;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,.08);padding:18px;margin-bottom:14px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .btn{padding:10px 12px;background:#2c3e50;color:#fff;border:0;border-radius:6px;cursor:pointer}
+    .btn-danger{background:#a32020}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    label{font-size:13px;color:#333}
+    input,textarea{width:100%;padding:10px;border:1px solid #d0d7de;border-radius:6px;box-sizing:border-box}
+    textarea{min-height:90px;resize:vertical}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px}
+    .ok{background:#e7f7ec;color:#1b6b2a}
+    .bad{background:#fde8e8;color:#8a1f1f}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;font-size:14px;vertical-align:top}
+    th{font-size:13px;color:#555}
+    .small{font-size:12px;color:#666}
+    .muted{color:#666}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <div class="card top">
+      <div>
+        <h2 style="margin:0">Sistema Web</h2>
+        <div class="small muted">Control de Registros con Vencimientos — Registro interno</div>
+      </div>
+      <button class="btn btn-danger" id="salir">Cerrar sesión</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Cargar nuevo oficio</h3>
+
+      <div class="grid3">
+        <div>
+          <label>N° de Oficio N° Registro</label>
+          <input id="oficio" placeholder="Ej: 1234/2025">
+        </div>
+        <div>
+          <label>Fecha de inicio</label>
+          <input id="fechaInicio" type="date">
+        </div>
+        <div>
+          <label>Días de vigencia</label>
+          <input id="dias" type="number" min="1" value="90">
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="grid">
+        <div>
+          <label>Nombre</label>
+          <input id="nombre" placeholder="Nombre">
+        </div>
+        <div>
+          <label>Apellido</label>
+          <input id="apellido" placeholder="Apellido">
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="grid3">
+        <div>
+          <label>DNI</label>
+          <input id="dni" placeholder="DNI (sin puntos)">
+        </div>
+        <div>
+          <label>Edad</label>
+          <input id="edad" type="number" min="0" placeholder="Edad">
+        </div>
+        <div>
+          <label>Celular</label>
+          <input id="celular" placeholder="Ej: 11 1234-5678">
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div>
+        <label>Domicilio</label>
+        <input id="domicilio" placeholder="Domicilio">
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div>
+        <label>Observaciones</label>
+        <textarea id="obs" placeholder="Datos extra, medidas, aclaraciones..."></textarea>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <button class="btn" id="guardar">Guardar oficio</button>
+      <span id="msg" class="small" style="margin-left:10px"></span>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Buscar</h3>
+      <div class="row">
+        <input id="busqueda" placeholder="Buscar por DNI, nombre o apellido" style="flex:1;min-width:220px">
+        <button class="btn" id="limpiar">Limpiar</button>
+      </div>
+      <div class="small muted" style="margin-top:8px">
+        Si está vencido, verás el aviso automáticamente.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Registros</h3>
+      <div class="small muted" id="contador"></div>
+
+      <div style="overflow:auto;margin-top:10px">
+        <table>
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Persona</th>
+              <th>Oficio</th>
+              <th>Vigencia</th>
+              <th>Observaciones</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tabla"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Seguridad: si no está logueado vuelve al login
+    if (localStorage.getItem("auth") !== "true") {
+      window.location.href = "index.html";
+    }
+
+    document.getElementById("salir").onclick = () => {
+      localStorage.removeItem("auth");
+      window.location.href = "index.html";
+    };
+
+    const KEY = "oficios_comisaria_v1";
+
+    function loadData() {
+      try {
+        return JSON.parse(localStorage.getItem(KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function saveData(arr) {
+      localStorage.setItem(KEY, JSON.stringify(arr));
+    }
+
+    function hoyISO() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const day = String(d.getDate()).padStart(2,"0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function addDays(dateISO, days) {
+      const d = new Date(dateISO + "T00:00:00");
+      d.setDate(d.getDate() + Number(days));
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const day = String(d.getDate()).padStart(2,"0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function isVigente(fechaInicio, dias) {
+      const venc = new Date(addDays(fechaInicio, dias) + "T23:59:59");
+      return new Date() <= venc;
+    }
+
+    // Default fechaInicio = hoy
+    document.getElementById("fechaInicio").value = hoyISO();
+
+    const msg = document.getElementById("msg");
+
+    function render() {
+      const q = (document.getElementById("busqueda").value || "").toLowerCase().trim();
+      const data = loadData();
+
+      const filtered = data.filter(r => {
+        if (!q) return true;
+        const hay = `${r.dni} ${r.nombre} ${r.apellido}`.toLowerCase();
+        return hay.includes(q);
+      });
+
+      document.getElementById("contador").innerText =
+        `Total: ${filtered.length} (guardados: ${data.length})`;
+
+      const tbody = document.getElementById("tabla");
+      tbody.innerHTML = "";
+
+      filtered
+        .sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .forEach(r => {
+          const vigente = isVigente(r.fechaInicio, r.dias);
+          const vencimiento = addDays(r.fechaInicio, r.dias);
+
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+            <td>
+              ${vigente
+                ? `<span class="pill ok">VIGENTE</span>`
+                : `<span class="pill bad">VENCIDO</span><div class="small bad" style="margin-top:6px">⚠ Se halla vencida esta notificación</div>`
+              }
+            </td>
+            <td>
+              <strong>${r.apellido || ""} ${r.nombre || ""}</strong><br>
+              <span class="small">DNI: ${r.dni || "-"} | Edad: ${r.edad || "-"} | Cel: ${r.celular || "-"}</span><br>
+              <span class="small">Dom: ${r.domicilio || "-"}</span>
+            </td>
+            <td>
+              <strong>${r.oficio || "-"}</strong>
+            </td>
+            <td class="small">
+              Inicio: ${r.fechaInicio}<br>
+              Días: ${r.dias}<br>
+              Vence: ${vencimiento}
+            </td>
+            <td class="small">${(r.obs || "").replaceAll("<","&lt;")}</td>
+            <td>
+              <button class="btn btn-danger" data-del="${r.id}">Eliminar</button>
+            </td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+
+      // bind delete
+      tbody.querySelectorAll("[data-del]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-del");
+          if (!confirm("¿Eliminar este registro?")) return;
+          const data2 = loadData().filter(x => x.id !== id);
+          saveData(data2);
+          render();
+        });
+      });
+    }
+
+    document.getElementById("guardar").addEventListener("click", () => {
+      msg.innerText = "";
+
+      const oficio = document.getElementById("oficio").value.trim();
+      const fechaInicio = document.getElementById("fechaInicio").value || hoyISO();
+      const dias = Number(document.getElementById("dias").value || 90);
+
+      const nombre = document.getElementById("nombre").value.trim();
+      const apellido = document.getElementById("apellido").value.trim();
+      const dni = document.getElementById("dni").value.trim();
+      const edad = document.getElementById("edad").value.trim();
+      const domicilio = document.getElementById("domicilio").value.trim();
+      const celular = document.getElementById("celular").value.trim();
+      const obs = document.getElementById("obs").value.trim();
+
+      if (!dni || !nombre || !apellido || !oficio) {
+        msg.style.color = "red";
+        msg.innerText = "Falta completar: N° Oficio, Nombre, Apellido y DNI.";
+        return;
+      }
+
+      const data = loadData();
+      data.push({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(),
+        oficio, fechaInicio, dias,
+        nombre, apellido, dni,
+        edad, domicilio, celular, obs,
+        createdAt: Date.now()
+      });
+
+      saveData(data);
+
+      // limpiar campos (mantener fecha y días)
+      document.getElementById("oficio").value = "";
+      document.getElementById("nombre").value = "";
+      document.getElementById("apellido").value = "";
+      document.getElementById("dni").value = "";
+      document.getElementById("edad").value = "";
+      document.getElementById("domicilio").value = "";
+      document.getElementById("celular").value = "";
+      document.getElementById("obs").value = "";
+
+      msg.style.color = "green";
+      msg.innerText = "Guardado correctamente.";
+      render();
+    });
+
+    document.getElementById("busqueda").addEventListener("input", render);
+    document.getElementById("limpiar").addEventListener("click", () => {
+      document.getElementById("busqueda").value = "";
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
