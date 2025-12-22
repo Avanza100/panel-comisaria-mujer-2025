@@ -4,7 +4,7 @@ document.getElementById("btnLogin").addEventListener("click", () => {
 
   if (usuario === "admin" && password === "admin123") {
     localStorage.setItem("auth", "true");
-    window.location.href = "panel.html";
+    window.location.href = "panel/";
   } else {
     document.getElementById("error").innerText =
       "Usuario o contraseña incorrectos";
